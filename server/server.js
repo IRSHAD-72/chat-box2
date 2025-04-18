@@ -6,13 +6,13 @@ const { Server } = require("socket.io");
 require("dotenv").config();
 
 const messageRoutes = require("./Routes/messageRoutes.js");
-const Message = require("./Models/Message.js"); 
+const Message = require("./Models/MessageModel.js"); 
 
 const app = express(); 
 const server = http.createServer(app); 
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173","https://chat-box2.vercel.app"],
     methods: ["GET", "POST"," DELETE"],
   },
 }); // ✅ Use the correct origin for your frontend app

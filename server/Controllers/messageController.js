@@ -1,4 +1,4 @@
-const Message = require("../Models/Message.js");
+const Message = require("../Models/MessageModel.js");
 
 exports.getMessages = async (req, res) => {
   const limit = parseInt(req.query.limit) || 30;

@@ -142,7 +142,7 @@ const ChatBox = () => {
       avatar: users[currentUser],
     };
   
-    socket.emit("sendMessage", newMsg); // ✅ only this
+    socket.emit("sendMessage", newMsg); // ✅ only this 
   
     socket.emit("stopTyping");
     setNewMessage("");
@@ -163,24 +163,22 @@ const ChatBox = () => {
   
   const handleDeleteMessage = async (messageId, index) => {
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/messages/${messageId}`, {
-        method: "DELETE",
-      });
-  
-      if (response.status === 200) {
-        // Remove the message from the list
-        setDisplayedMessages((prev) => prev.filter((_, i) => i !== index));
-      } else if (response.status === 404) {
-        console.warn("Message not found on server");
-        console.log("Message ID:", messageId);
-      } else {
-        console.error("Failed to delete message");
-      }
+      socket.emit("deleteMessage", messageId); // emit to backend via socket
+      setDisplayedMessages((prev) => prev.filter((_, i) => i !== index));
     } catch (error) {
       console.error("Error deleting message:", error);
     }
   };
+  useEffect(() => {
+    socket.on("messageDeleted", (deletedMessageId) => {
+      setDisplayedMessages((prev) =>
+        prev.filter((msg) => msg._id !== deletedMessageId)
+      );
+    });
   
+    return () => socket.off("messageDeleted");
+  }, []);
+    
   
   const formatMessageText = (text) =>
     text.split("\n").map((str, i) => (

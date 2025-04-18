@@ -1,17 +1,13 @@
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
-const {
-  getMessages,
-  createMessage,
-} = require("../Controllers/MessageController.js");
+const Message = require("../Models/MessageModel.js"); // ✅ Add this
+const { getMessages, createMessage } = require("../Controllers/MessageController.js");
 
 router.get("/", getMessages);
 router.post("/", createMessage);
-// routes/messageRoutes.js
-// adjust path if needed
 
-router.delete("/api/messages/:id", async (req, res) => {
+router.delete("/:id", async (req, res) => { // ✅ Fix path here
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -24,13 +20,11 @@ router.delete("/api/messages/:id", async (req, res) => {
       return res.status(404).json({ error: "Message not found" });
     }
 
-    // Broadcast delete event
-    io.emit("messageDeleted", id);
-
-    res.json({ success: true });
+    res.json({ success: true }); // No need to broadcast here
   } catch (err) {
     console.error("Delete error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 module.exports = router;

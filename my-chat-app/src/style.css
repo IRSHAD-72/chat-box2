@@ -462,4 +462,38 @@ body{margin-top:20px;}
     margin-top: 5px;
     text-align: right;
   }
-  
+  /* Light Theme (default) */
+.chat-container.light {
+  background-color: #f5f5f5;
+  color: #212121;
+}
+
+/* Dark Theme */
+.chat-container.dark {
+  background-color: #1e1e1e;
+  color: #f0f0f0;
+}
+
+/* Update message bubbles, avatars, etc., to match */
+.chat-container.dark .chat-text {
+  background-color: #333;
+  color: #fff;
+}
+
+.chat-container.light .chat-text {
+  background-color: #e4e6eb;
+  color: #000;
+}
+
+/* Optional: Tweak borders, input, typing, etc., as needed */
+.chat-container.dark textarea,
+.chat-container.dark .chat-search-box {
+  background-color: #2a2a2a;
+  color: #fff;
+  border: 1px solid #444;
+}
+
+.chat-container.light textarea {
+  background-color: #fff;
+  color: #000;
+}
