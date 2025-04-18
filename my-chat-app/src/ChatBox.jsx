@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
-//import { faker } from "@faker-js/faker";
+import { io } from "socket.io-client";
+import { debounce } from "lodash"; 
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./app.css";
 import "./style.css";
+
+const socket = io("http://127.0.0.1:5000");
 
 const users = {
   John: "https://randomuser.me/api/portraits/men/1.jpg",
@@ -11,162 +14,174 @@ const users = {
   Jin: "https://randomuser.me/api/portraits/men/3.jpg",
 };
 
-const sampleMessages = [
-  {
-    user: "John",
-    text: "Hello, I'm John. \n How can I help you today?",
-    time: "08:55",
-    avatar: users["John"],
-  },
-  {
-    user: "Sam",
-    text: "Hi, John! \n I need more information about the Developer Plan.",
-    time: "08:56",
-    avatar: users["Sam"],
-  },
-  {
-    user: "John",
-    text: "Are we meeting today?,\n Project has been already finished and I have results to show you.",
-    time: "08:57",
-    avatar: users["John"],
-  },
-  {
-    user: "Joyce",
-    text: "Well I am not sure. \n I have results to show you.",
-    time: "08:59",
-    avatar: users["Joyce"],
-  },
-  {
-    user: "John",
-    text: "The rest of the team is not here yet. maybe in an hour or so?",
-    time: "09:00",
-    avatar: users["John"],
-  },
-  {
-    user: "Jin",
-    text: "Have you faced any issues at the last phase of the project?",
-    time: "09:01",
-    avatar: users["Jin"],
-  },
-  {
-    user: "John",
-    text: "Actually everything was fine. \n I'm very excited to show this to our team.",
-    time: "09:00",
-    avatar: users["John"],
-  },
-];
-
 const MESSAGES_PER_PAGE = 30;
- 
-const fakeApiFetchMessages = () => {
-  return new Promise((resolve) => { 
-    setTimeout(() => {
-      const messages = Array.from({ length: 10000 }, (_, i) => {
-        const user = sampleMessages[i % sampleMessages.length].user;
-        return {
-          user,
-          text: sampleMessages[i % sampleMessages.length].text,
-          time: sampleMessages[i % sampleMessages.length].time,
-          avatar: users[user],
-        };
-      });
-      resolve(messages);
-    }, 1500);
-  });
-};
-// const fakeApiFetchMessages = () => {
+
 const ChatBox = () => {
-  const [allMessages, setAllMessages] = useState([]);
   const [displayedMessages, setDisplayedMessages] = useState([]);
-  const [page, setPage] = useState(1);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [newMessage, setNewMessage] = useState("");
   const [currentUser, setCurrentUser] = useState("John");
+  const [page, setPage] = useState(1);
+  const [typingUsers, setTypingUsers] = useState([]);
+  const [selectedMsgIndex, setSelectedMsgIndex] = useState(null);
+  const typingTimeoutRef = useRef(null); // ✅ Add this
 
   const chatBoxRef = useRef(null);
   const bottomRef = useRef(null);
+  const toggleMessageOptions = (index) => {
+    setDisplayedMessages((prevMessages) =>
+      prevMessages.map((msg, i) => ({
+        ...msg,
+        showOptions: i === index ? !msg.showOptions : false,
+      }))
+    );
+  };
+  
+  useEffect(() => {
+    socket.emit("joinRoom", { username: currentUser, room: "general" });
+
+    return () => {
+      socket.off("typing");
+      socket.off("stopTyping");
+    };
+  }, [currentUser]);
 
   useEffect(() => {
-    const saved = localStorage.getItem("chatMessages");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setAllMessages(parsed);
-      setDisplayedMessages(parsed.slice(-MESSAGES_PER_PAGE));
-      setLoadingInitial(false);
-    } else {
-      (async () => {       // Simulate API call
-        const fakeMessages = await fakeApiFetchMessages(); 
-        localStorage.setItem("chatMessages", JSON.stringify(fakeMessages));
-        setAllMessages(fakeMessages);
-        setDisplayedMessages(fakeMessages.slice(-MESSAGES_PER_PAGE));
-        setLoadingInitial(false);
-      })();}
+    socket.on("userTyping", (username) => {
+      setTypingUsers((prev) =>
+        prev.includes(username) ? prev : [...prev, username]
+      );
+    });
+
+    socket.on("userStoppedTyping", (username) => {
+      setTypingUsers((prev) => prev.filter((user) => user !== username));
+    });
+
+    return () => {
+      socket.off("userTyping");
+      socket.off("userStoppedTyping");
+    };
   }, []);
 
   useEffect(() => {
-    if (page === 1) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [displayedMessages]);
-
-  const handleScroll = () => {
-    const chatBox = chatBoxRef.current;
-    if (!chatBox || loadingMore) return;
-
-    if (chatBox.scrollTop <= 0 && displayedMessages.length < allMessages.length) {
-      const prevScrollHeight = chatBox.scrollHeight;
-      setLoadingMore(true);
+    const loadInitialMessages = async () => {
+      const data = await fetchMessagesFromServer(1);
+      setDisplayedMessages(data);
+      setPage(2);
+      setHasMore(data.length === MESSAGES_PER_PAGE);
+      setLoadingInitial(false);
 
       setTimeout(() => {
-        const newPage = page + 1;
-        const start = Math.max(0, allMessages.length - newPage * MESSAGES_PER_PAGE);
-        const end = allMessages.length - (newPage - 1) * MESSAGES_PER_PAGE;
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    };
+    loadInitialMessages();
+  }, []);
 
-        const newMessages = allMessages.slice(start, end);
-        setDisplayedMessages((prev) => [...newMessages, ...prev]);
-        setPage(newPage);
-        setLoadingMore(false);
-
-        // maintain scroll position
-        setTimeout(() => {
-          const newScrollHeight = chatBox.scrollHeight;
-          chatBox.scrollTop = newScrollHeight - prevScrollHeight;
-        }, 0);
-      }, 2000); // simulate loading time
+  const fetchMessagesFromServer = async (pageNum) => {
+    try {
+      const res = await fetch(`http://127.0.0.1:5000/api/messages?page=${pageNum}&limit=${MESSAGES_PER_PAGE}`);
+      const data = await res.json();
+      return data;
+    } catch (err) {
+      console.error("Error fetching messages:", err);
+      return [];
     }
+  };
+
+  const handleScroll = async () => {
+    const chatBox = chatBoxRef.current;
+    if (!chatBox || loadingMore || !hasMore || chatBox.scrollTop > 0) return;
+
+    const prevScrollHeight = chatBox.scrollHeight;
+    setLoadingMore(true);
+
+    setTimeout(async () => {
+      const olderMessages = await fetchMessagesFromServer(page);
+      if (olderMessages.length < MESSAGES_PER_PAGE) setHasMore(false);
+
+      setDisplayedMessages((prev) => [...olderMessages, ...prev]);
+      setPage((prev) => prev + 1);
+      setLoadingMore(false);
+
+      setTimeout(() => {
+        const newScrollHeight = chatBox.scrollHeight;
+        chatBox.scrollTop = newScrollHeight - prevScrollHeight;
+      }, 0);
+    }, 3000);
   };
 
   useEffect(() => {
     const chatBox = chatBoxRef.current;
     if (!chatBox) return;
+
     chatBox.addEventListener("scroll", handleScroll);
     return () => chatBox.removeEventListener("scroll", handleScroll);
-  }, [displayedMessages, loadingMore]);
+  }, [displayedMessages, loadingMore, hasMore]);
 
-  const sendMessage = () => {
+  useEffect(() => {
+    socket.on("receiveMessage", (msg) => {
+      setDisplayedMessages((prev) => [...prev, msg]);
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    });
+
+    return () => socket.off("receiveMessage");
+  }, []);
+
+  const sendMessage = async () => {
     if (!newMessage.trim()) return;
-
+  
     const newMsg = {
       user: currentUser,
       text: newMessage,
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       avatar: users[currentUser],
     };
-
-    const updatedAll = [...allMessages, newMsg];
-    const updatedDisplayed = [...displayedMessages, newMsg];
-
-    setAllMessages(updatedAll);
-    setDisplayedMessages(updatedDisplayed);
-    localStorage.setItem("chatMessages", JSON.stringify(updatedAll));
+  
+    socket.emit("sendMessage", newMsg); // ✅ only this
+  
+    socket.emit("stopTyping");
     setNewMessage("");
-
-    setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
-
+  
+  const handleTyping = () => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+  
+    socket.emit("typing");
+  
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit("stopTyping");
+    }, 1000);
+  };
+  
+  const handleDeleteMessage = async (messageId, index) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:5000/api/messages/${messageId}`, {
+        method: "DELETE",
+      });
+  
+      if (response.status === 200) {
+        // Remove the message from the list
+        setDisplayedMessages((prev) => prev.filter((_, i) => i !== index));
+      } else if (response.status === 404) {
+        console.warn("Message not found on server");
+        console.log("Message ID:", messageId);
+      } else {
+        console.error("Failed to delete message");
+      }
+    } catch (error) {
+      console.error("Error deleting message:", error);
+    }
+  };
+  
+  
   const formatMessageText = (text) =>
     text.split("\n").map((str, i) => (
       <span key={i}>
@@ -174,6 +189,7 @@ const ChatBox = () => {
         {i < text.split("\n").length - 1 && <br />}
       </span>
     ));
+
 
   return (
     <div className="chat-container">
@@ -200,44 +216,103 @@ const ChatBox = () => {
                 <div className="spinner-border spinner-border-sm text-primary" role="status" />
               </li>
             )}
+{displayedMessages.map((msg, index) => (
+  <li
+    key={index}
+    className={`${msg.user === currentUser ? "chat-right" : "chat-left"} position-relative`}
+    onClick={() => toggleMessageOptions(index)}
+  >
+    {msg.user === currentUser ? (
+      <>
+        <div className="chat-hour">
+          {msg.time} <span className="fa fa-check-circle px-1" />
+        </div>
+        <div className="chat-text">{formatMessageText(msg.text)}</div>
+        <div className="chat-avatar">
+          <img src={msg.avatar} alt={msg.user} className="avatar avatar-sm" />
+          <div className="chat-name">{msg.user}</div>
+        </div>
+      </>
+    ) : (
+      <>
+        <div className="chat-avatar">
+          <img src={msg.avatar} alt={msg.user} className="avatar avatar-sm" />
+          <div className="chat-name">{msg.user}</div>
+        </div>
+        <div className="chat-text">{formatMessageText(msg.text)}</div>
+        <div className="chat-hour">
+          {msg.time} <span className="fa fa-check-circle px-1" />
+        </div>
+      </>
+    )}
 
-            {displayedMessages.map((msg, index) => (
-              <li key={index} className={msg.user === "John" ? "chat-left" : "chat-right"}>
-                {msg.user === "John" ? (
-                  <>
-                    <div className="chat-avatar">
-                      <img src={msg.avatar} alt={msg.user} className="avatar avatar-sm" />
-                      <div className="chat-name">{msg.user}</div>
-                    </div>
-                    <div className="chat-text">{formatMessageText(msg.text)}</div>
-                    <div className="chat-hour">
-                      {msg.time} <span className="fa fa-check-circle px-1" />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="chat-hour">
-                      {msg.time} <span className="fa fa-check-circle px-1" />
-                    </div>
-                    <div className="chat-text">{formatMessageText(msg.text)}</div>
-                    <div className="chat-avatar">
-                      <img src={msg.avatar} alt={msg.user} className="avatar avatar-sm" />
-                      <div className="chat-name">{msg.user}</div>
-                    </div>
-                  </>
-                )}
-              </li>
-            ))}
+    {/* Show delete button only for own messages */}
+    {msg.user === currentUser && msg.showOptions && (
+      <div className="message-options position-absolute">
+        <button className="" onClick={() => handleDeleteMessage(msg._id, index)}>
+          Delete
+        </button>
+      </div>
+    )}
+  </li>
+))}
+
+
             <div ref={bottomRef} />
           </ul>
+          
+          {typingUsers.length > 0 && (
+  <div className="typing-indicator d-flex align-items-center gap-2 p-2">
+    <div className="d-flex align-items-center">
+      {typingUsers.map((user, index) => (
+        <img
+          key={index}
+          src={users[user]}
+          alt={user}
+          className="avatar avatar-sm me-1"
+          title={user}
+        />
+      ))}
+    </div>
+    <div className="typing-text">
+      {typingUsers.length === 1
+        ? `${typingUsers[0]} is typing`
+        : `${typingUsers.slice(0, 2).join(" and ")}${typingUsers.length > 2 ? " and others" : ""} are typing`}
+      <span className="typing-dots">
+        <span>.</span>
+        <span>.</span>
+        <span>.</span>
+      </span>
+    </div>
+  </div>
+)}
+
+          {/* {typingUsers.length > 0 && (
+            <div className="typing-indicator">
+              {typingUsers.map((user, index) => (
+                <div key={index} className="typing-user">
+                  <img src={users[user]} alt={user} className="avatar avatar-sm" />
+                  <span>{user} is typing...</span>
+                </div>
+              ))}
+            </div> */}
+          
 
           <div className="chat-search-box">
             <textarea
               className="form-control"
               placeholder="Type your message here..."
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+              onChange={(e) => {
+                setNewMessage(e.target.value);
+                handleTyping();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendMessage();
+                }
+              }}
             ></textarea>
             <button className="input-group-btn btn" onClick={sendMessage}>
               SEND
@@ -249,4 +324,4 @@ const ChatBox = () => {
   );
 };
 
-export default ChatBox;
+export default ChatBox; 

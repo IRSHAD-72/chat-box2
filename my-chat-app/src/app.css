@@ -391,10 +391,7 @@
  [type="reset"],
  [type="submit"] {
    -webkit-appearance: button;
-<<<<<<< HEAD
-=======
    appearance: button;
->>>>>>> e6ebabb (changed)
  }
  
  button:not(:disabled),
@@ -456,11 +453,9 @@
  [type="search"] {
    outline-offset: -2px;
    -webkit-appearance: textfield;
-<<<<<<< HEAD
-=======
    appearance: textfield;
->>>>>>> e6ebabb (changed)
  }
+
  
  /* rtl:raw:
   [type="tel"],
@@ -2525,11 +2520,9 @@
    background-size: contain;
    border: none;
    appearance: none;
-<<<<<<< HEAD
+
    color-adjust: exact;
-=======
    print-color-adjust: exact;
->>>>>>> e6ebabb (changed)
    transition: background-color 0.25s ease, border-color 0.25s ease, background-position 0.15s ease-in-out, opacity 0.15s ease-out, box-shadow 0.15s ease-in-out;
  }
  
@@ -20338,11 +20331,8 @@
  
  @media (max-width: 767.98px) {
    .navbar-collapse {
-<<<<<<< HEAD
-     /* position: relative; */
-=======
+
      position: relative;
->>>>>>> e6ebabb (changed)
    }
  
    .navbar-collapse .navbar-nav {
@@ -21593,16 +21583,15 @@
  }
  
  .dropdown.on .dropdown-label:before {
-<<<<<<< HEAD
+
    /* content: "Ã¢â€“Â²"; */
- }
-=======
+ 
+
    content: "▲"; /* Example: Add meaningful content */
    font-size: 12px;
    color: #333;
  }
    /* content: "Ã¢â€“Â²"; */
->>>>>>> e6ebabb (changed)
  
  .dropdown [type=checkbox] {
    position: relative;
@@ -21967,12 +21956,12 @@
    padding: 0.55rem 1rem;
  
  }
-<<<<<<< HEAD
+
  .form-group{
  
+ 
+
  }
-=======
->>>>>>> e6ebabb (changed)
  input[type=file]::file-selector-button:hover {
    box-shadow: 0 3px 5px -1px rgb(0 0 0 / 9%), 0 2px 3px -1px rgb(0 0 0 / 7%);
    transform: scale(1.02);
