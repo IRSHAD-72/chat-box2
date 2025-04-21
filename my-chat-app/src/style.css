@@ -491,9 +491,74 @@ body{margin-top:20px;}
   background-color: #2a2a2a;
   color: #fff;
   border: 1px solid #444;
+
 }
 
 .chat-container.light textarea {
   background-color: #fff;
   color: #000;
 }
+/* Example style.css additions */
+/* Default light mode styles */
+body.light-mode {
+    background-color: #f8f9fa;
+    color: #212529;
+  }
+  
+  .chat-container.light {
+    background-color: #ffffff;
+    color: #000000;
+  }
+  
+  /* Dark mode styles */
+  body.dark-mode {
+    background-color: #121212;
+    color: #ffffff;
+  }
+  
+  .chat-container.dark {
+    background-color: #1e1e1e;
+    color: #ffffff;
+  }
+  
+  /* Chat message styling */
+  .chat-text {
+    background-color: #e0e0e0;
+    color: #000000;
+    padding: 10px;
+    border-radius: 8px;
+    max-width: 60%;
+  }
+  
+  .chat-container.dark .chat-text {
+    background-color: #2c2c2c;
+    color: #ffffff;
+  }
+  
+  /* Chat input area */
+  .chat-search-box textarea {
+    background-color: #ffffff;
+    color: #000000;
+  }
+  
+  .chat-container.dark .chat-search-box textarea {
+    background-color: #2c2c2c;
+    color: #ffffff;
+  }
+  
+  .chat-container.dark .form-control,
+  .chat-container.dark .btn {
+    background-color: #333;
+    color: #fff;
+    border: 1px solid #444;
+  }
+  .chat-container.dark .chat-text::before {
+    border-color: transparent  #333 transparent transparent;
+  }
+  .chat-container.dark .chat-right .chat-text::before {
+    border-color: transparent transparent transparent  #333;
+  }
+  .chat-container.dark .chat-box {
+    background-color: #19181a;
+    color: #fff;
+  }

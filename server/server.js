@@ -1,26 +1,52 @@
+// server.js
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
-require("dotenv").config();
+const dotenv = require("dotenv").config();
 
 const messageRoutes = require("./Routes/messageRoutes.js");
-const Message = require("./Models/MessageModel.js"); 
+const authRoutes = require("./Routes/AuthRoute.js");  // Import auth routes
+const Message = require("./Models/MessageModel.js");
+const authenticateSocket = require("./Middelware/authMiddelware.js");  // Import middleware
 
-const app = express(); 
-const server = http.createServer(app); 
-const io = new Server(server, {
+const app = express();
+const server = http.createServer(app);
+const io = require("socket.io")(server, {
   cors: {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173","https://chat-box2.vercel.app"],
-    methods: ["GET", "POST"," DELETE"],
+    origin: ["http://localhost:5173", "http://127.0.0.1:5173"], // ✅ allow both
+    methods: ["GET", "POST","dellete"],
+    credentials: true,
   },
-}); // ✅ Use the correct origin for your frontend app
+  treansport: ["websocket"],
+});
+
+const jwt = require("jsonwebtoken");
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+
+  if (!token) {
+    console.log("❌ No token provided");
+    return next(new Error("No token"));
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.user = decoded; // optionally store user data on socket
+    next();
+  } catch (err) {
+    console.log("❌ Invalid token", err.message);
+    next(new Error("Authentication failed"));
+  }
+});
+
 
 app.use(cors());
 app.use(express.json());
-app.use("/api/messages", messageRoutes); // ✅ Correct usage
-
+app.use("/api/messages", messageRoutes);// Use auth routes
+app.use("/api/auth", authRoutes);
 
 mongoose
   .connect(process.env.MONGO_URI)
@@ -29,6 +55,21 @@ mongoose
 
 const users = {};
 const rooms = {};
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) {
+    return next(new Error("Authentication error"));
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.user = decoded; // store user info on socket
+    next();
+  } catch (err) {
+    return next(new Error("Invalid token"));
+  }
+});
 
 io.on("connection", (socket) => {
   socket.on("joinRoom", ({ username, room }) => {
@@ -41,30 +82,29 @@ io.on("connection", (socket) => {
     socket.to(room).emit("userJoined", {
       username,
       message: `${username} has joined.`,
-    }); // ✅ Emit to room
+    });
 
     const roomUsers = rooms[room].map((id) => users[id]?.username);
     io.to(room).emit("roomUsers", roomUsers);
 
-    socket.room = room; // ✅ Track room on socket object
-  });   // ✅ Store room in socket object
+    socket.room = room;
+  });
 
   socket.on("sendMessage", async (msg) => {
     try {
       const saved = await new Message(msg).save();
-      io.to(socket.room).emit("receiveMessage", saved); // ✅ Emit after saving
+      io.to(socket.room).emit("receiveMessage", saved);
     } catch (err) {
       console.error("Message save error:", err);
     }
-  }); // ✅ Save message to database
+  });
 
   socket.on("typing", () => {
     const user = users[socket.id];
     if (user?.room) {
-      socket.to(user.room).emit("userTyping", user.username); // ✅ Emit typing event to room
+      socket.to(user.room).emit("userTyping", user.username);
     }
-  }); // ✅ Emit typing event to room
-
+  });
 
   socket.on("stopTyping", () => {
     const user = users[socket.id];
@@ -72,18 +112,16 @@ io.on("connection", (socket) => {
       socket.to(user.room).emit("userStoppedTyping", user.username);
     }
   });
-  socket.on("deleteMessage", async (messageId) => {
+  socket.on('deleteMessage', async (messageId) => {
     try {
       const deleted = await Message.findByIdAndDelete(messageId);
       if (deleted) {
-        io.to(socket.room).emit("messageDeleted", messageId); // notify everyone
+        io.emit('messageDeleted', messageId); // Notify all clients
       }
     } catch (err) {
-      console.error("Socket delete error:", err);
+      console.error('Failed to delete message:', err.message);
     }
   });
-  
-
   socket.on("disconnect", () => {
     const user = users[socket.id];
     if (user?.room) {

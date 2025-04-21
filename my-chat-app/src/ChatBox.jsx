@@ -4,6 +4,9 @@ import { debounce } from "lodash";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./app.css";
 import "./style.css";
+import {useSelector} from 'react-redux';
+import { useDispatch } from "react-redux";
+import {toggleTheme} from './store/themeslice';
 
 const socket = io("http://127.0.0.1:5000");
 
@@ -22,14 +25,17 @@ const ChatBox = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [newMessage, setNewMessage] = useState("");
-  const [currentUser, setCurrentUser] = useState("John");
+  const [currentUser, setCurrentUser] = useState(() => localStorage.getItem("username") );
+
   const [page, setPage] = useState(1);
   const [typingUsers, setTypingUsers] = useState([]);
   const [selectedMsgIndex, setSelectedMsgIndex] = useState(null);
   const typingTimeoutRef = useRef(null); // ✅ Add this
-
   const chatBoxRef = useRef(null);
   const bottomRef = useRef(null);
+  const getAvatar = (username) => users[username] || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+  
+
   const toggleMessageOptions = (index) => {
     setDisplayedMessages((prevMessages) =>
       prevMessages.map((msg, i) => ({
@@ -139,12 +145,16 @@ const ChatBox = () => {
       user: currentUser,
       text: newMessage,
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      avatar: users[currentUser],
+      avatar: getAvatar(currentUser),
+
     };
   
-    socket.emit("sendMessage", newMsg); // ✅ only this 
+    // Immediately add message to local state
+    setDisplayedMessages((prev) => [...prev, newMsg]);
   
+    socket.emit("sendMessage", newMsg);
     socket.emit("stopTyping");
+  
     setNewMessage("");
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
   };
@@ -179,7 +189,30 @@ const ChatBox = () => {
     return () => socket.off("messageDeleted");
   }, []);
     
+  const theme = useSelector((state) => state.theme.darkMode);
+  const dispatch = useDispatch(); 
+  useEffect(() => {
+    document.body.className = theme ? "dark-mode" : "light-mode";
+  }, [theme]);
+   
+
+  // In your React frontend code
+
+  const token = localStorage.getItem("token");
   
+  const socket = io("http://localhost:5000", {
+    auth: {
+      token: token, // send token to backend
+    },
+    transports: ["websocket"],
+  });
+  
+socket.on("connect", () => {
+  console.log("Connected to WebSocket");
+});
+
+// Handle the connection and message sending as before
+
   const formatMessageText = (text) =>
     text.split("\n").map((str, i) => (
       <span key={i}>
@@ -190,23 +223,34 @@ const ChatBox = () => {
 
 
   return (
-    <div className="chat-container">
-      <h5 className="text-left border-bottom pb-2">Project Communications</h5>
+<div className={`chat-container ${theme ? "dark" : "light"}`}>
 
+     <h5 className={`text-left border-bottom pb-2 ${theme ? "text-white" : "text-dark"}`}>
+  Project Communications
+</h5>
+
+     <div className="d-flex justify-content-end mb-2">
+        <button 
+        className="btn btn-outline-secondary"
+        onClick={() => dispatch(toggleTheme())}
+        >
+          switch to {theme ? "Light" : "Dark"} mode
+        </button>
+      </div>
       {loadingInitial ? (
         <div className="d-flex justify-content-center align-items-center" style={{ height: "200px" }}>
           <div className="spinner-border text-primary" role="status" />
         </div>
       ) : (
         <>
-          <div className="user-toggle mb-2">
+          {/* <div className="user-toggle mb-2">
             <button
               className="btn btn-primary"
               onClick={() => setCurrentUser(currentUser === "John" ? "Sam" : "John")}
             >
               Switch to {currentUser === "John" ? "Sam" : "John"}
             </button>
-          </div>
+          </div> */}
 
           <ul className="chat-box chatContainerScroll" ref={chatBoxRef}>
             {loadingMore && (

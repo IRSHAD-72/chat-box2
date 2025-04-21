@@ -21972,7 +21972,12 @@
    font-size: 0.8rem;
  }
  
- 
+ /* app.css */
+.chat-box {
+  padding: 1rem;
+  background-color: #f9f9f9;
+}
+
  
  
  
