@@ -8,7 +8,7 @@ import {useSelector} from 'react-redux';
 import { useDispatch } from "react-redux";
 import {toggleTheme} from './store/themeslice';
 
-const socket = io("http://127.0.0.1:5000");
+//const socket = io("http://127.0.0.1:5000");
 
 const users = {
   John: "https://randomuser.me/api/portraits/men/1.jpg",
@@ -34,6 +34,38 @@ const ChatBox = () => {
   const chatBoxRef = useRef(null);
   const bottomRef = useRef(null);
   const getAvatar = (username) => users[username] || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+  const [newAvatar, setNewAvatar] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+  const handleSaveProfile = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/updateProfile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: newUsername,
+          avatar: newAvatar,
+        }),
+      });
+  
+      const data = await response.json();
+  
+      if (data.message === "Profile updated") {
+        alert("Profile updated successfully");
+  
+        localStorage.setItem("username", newUsername);
+        localStorage.setItem("avatar", newAvatar);
+      } else {
+        alert("Failed to update profile: " + data.message);
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert("Error updating profile: " + error.message);
+    }
+  };
   
 
   const toggleMessageOptions = (index) => {
@@ -213,6 +245,7 @@ socket.on("connect", () => {
 
 // Handle the connection and message sending as before
 
+
   const formatMessageText = (text) =>
     text.split("\n").map((str, i) => (
       <span key={i}>
@@ -228,8 +261,33 @@ socket.on("connect", () => {
      <h5 className={`text-left border-bottom pb-2 ${theme ? "text-white" : "text-dark"}`}>
   Project Communications
 </h5>
-
-     <div className="d-flex justify-content-end mb-2">
+<div>
+  <button onClick ={() => setIsProfileModalOpen(true)}>
+    updated profile
+  </button>
+  {isProfileModalOpen && (
+  <div className="modal">
+    <div className="modal-content position-relative">
+      <span className="close" onClick={() => setIsProfileModalOpen(false)}>&times;</span>
+      <h2>Update Profile</h2>
+      <input
+        type="text"
+        placeholder="New Username"
+        value={newUsername}
+        onChange={(e) => setNewUsername(e.target.value)}
+      />
+      <input
+        type="text"
+        placeholder="New Avatar URL"
+        value={newAvatar}
+        onChange={(e) => setNewAvatar(e.target.value)}
+      />
+      <button onClick={handleSaveProfile}>Save</button>
+    </div>
+  </div>
+)}
+</div>
+    <div className="d-flex justify-content-end mb-2">
         <button 
         className="btn btn-outline-secondary"
         onClick={() => dispatch(toggleTheme())}

@@ -8,6 +8,8 @@ const Register = () => {
   const [avatar, setAvatar] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -18,7 +20,7 @@ const Register = () => {
       return;
     }
 
-    const userData = { username, password, avatar }; // Include avatar in user data
+    const userData = { username,email, password }; // Include avatar in user data
 
     try {
       const response = await fetch("http://localhost:5000/api/auth/register", {
@@ -37,7 +39,7 @@ const Register = () => {
       console.log(result); // Log the response from the server
 
       // Redirect to login page after successful registration
-      navigate("/login");
+      navigate("/login", { state: { email } }); // Pass email to the verify page
 
     } catch (err) {
       console.error("Error:", err);
@@ -54,6 +56,14 @@ const Register = () => {
         value={username}
         onChange={(e) => setUsername(e.target.value)}
       />
+       <input
+        type="email"
+        className="form-control mb-2"
+        placeholder="Email"
+        value={email}
+
+        onChange={(e) => setEmail (e.target.value)} // Use confirmPassword state
+      />
       <input
         type="password"
         className="form-control mb-2"
@@ -68,12 +78,12 @@ const Register = () => {
         value={confirmPassword}
         onChange={(e) => setConfirmPassword(e.target.value)} // Use confirmPassword state
       />
-      <input
+      {/* <input
         className="form-control mb-2"
         placeholder="Avatar URL (optional)"
         value={avatar}
         onChange={(e) => setAvatar(e.target.value)}
-      />
+      /> */}
       <button className="btn btn-success" onClick={handleRegister}>
         Register
       </button>
