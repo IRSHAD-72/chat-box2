@@ -168,5 +168,51 @@ router.post("/login", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+const authenticateToken = require("../Middelware/authMiddelware");
+
+router.post("/updateProfile", authenticateToken, async (req, res) => {
+  const { username, avatar, oldPassword, newPassword } = req.body;
+
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // ✅ Username update with uniqueness check
+    if (username && username !== user.username) {
+      const existingUsername = await User.findOne({ username });
+      if (existingUsername) {
+        return res.status(400).json({ message: "Username already taken" });
+      }
+      user.username = username;
+    }
+
+    // ✅ Avatar update
+    if (avatar) {
+      user.avatar = avatar;
+    }
+
+    // ✅ Password update
+    if (oldPassword && newPassword) {
+      const isMatch = await user.comparePassword(oldPassword);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Old password is incorrect" });
+      }
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword, salt);
+    }
+
+    // ❌ Email should not be updated, so we leave it as is
+
+    await user.save();
+
+    res.json({ message: "Profile updated successfully" });
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 
 module.exports = router;

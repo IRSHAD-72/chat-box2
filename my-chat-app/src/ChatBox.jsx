@@ -7,6 +7,7 @@ import "./style.css";
 import {useSelector} from 'react-redux';
 import { useDispatch } from "react-redux";
 import {toggleTheme} from './store/themeslice';
+import { useNavigate } from "react-router-dom";
 
 //const socket = io("http://127.0.0.1:5000");
 
@@ -27,46 +28,66 @@ const ChatBox = () => {
   const [newMessage, setNewMessage] = useState("");
   const [currentUser, setCurrentUser] = useState(() => localStorage.getItem("username") );
 
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [typingUsers, setTypingUsers] = useState([]);
   const [selectedMsgIndex, setSelectedMsgIndex] = useState(null);
   const typingTimeoutRef = useRef(null); // ✅ Add this
   const chatBoxRef = useRef(null);
   const bottomRef = useRef(null);
-  const getAvatar = (username) => users[username] || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+  const getAvatar = (username) => {
+    const storedAvatar = localStorage.getItem("avatar");
+    return storedAvatar || users[username] || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+  };
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      window.location.href = "/login";
+    }
+  }, []);
+  
   const [newAvatar, setNewAvatar] = useState("");
   const [newUsername, setNewUsername] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [oldPassword, setOldpassword] = useState("");
+  const [newPassword, setNewpassword] = useState("");
+  
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
-  const handleSaveProfile = async () => {
+  const handleSaveProfile = async (newUsername, newAvatar, oldPassword, newPassword) => {
     try {
+      const token = localStorage.getItem("token");
+  
       const response = await fetch("http://localhost:5000/api/auth/updateProfile", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           username: newUsername,
           avatar: newAvatar,
+          oldPassword,
+          newPassword,
         }),
       });
   
       const data = await response.json();
-  
-      if (data.message === "Profile updated") {
+      if (data.message === "Profile updated successfully") {
         alert("Profile updated successfully");
-  
         localStorage.setItem("username", newUsername);
         localStorage.setItem("avatar", newAvatar);
+        setCurrentUser(newUsername);
       } else {
-        alert("Failed to update profile: " + data.message);
+        alert(data.message);
       }
     } catch (error) {
       console.error("Error updating profile:", error);
-      alert("Error updating profile: " + error.message);
+      alert("Error updating profile");
     }
   };
-  
+   
 
   const toggleMessageOptions = (index) => {
     setDisplayedMessages((prevMessages) =>
@@ -243,58 +264,118 @@ socket.on("connect", () => {
   console.log("Connected to WebSocket");
 });
 
+
+    const handleLogout = () => {
+      // Clear user data (example: localStorage, tokens)
+      localStorage.removeItem("token");
+      navigate("/login"); // Redirect to login
+    };
+    
+
 // Handle the connection and message sending as before
 
+const formatMessageText = (text) => {
+  const safeText = text || '';
+  const lines = safeText.split('\n');
+  return lines.map((line, index) => <div key={index}>{line}</div>);
+};
 
-  const formatMessageText = (text) =>
-    text.split("\n").map((str, i) => (
-      <span key={i}>
-        {str}
-        {i < text.split("\n").length - 1 && <br />}
-      </span>
-    ));
 
 
   return (
 <div className={`chat-container ${theme ? "dark" : "light"}`}>
 
-     <h5 className={`text-left border-bottom pb-2 ${theme ? "text-white" : "text-dark"}`}>
-  Project Communications
-</h5>
-<div>
-  <button onClick ={() => setIsProfileModalOpen(true)}>
-    updated profile
-  </button>
-  {isProfileModalOpen && (
-  <div className="modal">
-    <div className="modal-content position-relative">
-      <span className="close" onClick={() => setIsProfileModalOpen(false)}>&times;</span>
-      <h2>Update Profile</h2>
-      <input
-        type="text"
-        placeholder="New Username"
-        value={newUsername}
-        onChange={(e) => setNewUsername(e.target.value)}
-      />
-      <input
-        type="text"
-        placeholder="New Avatar URL"
-        value={newAvatar}
-        onChange={(e) => setNewAvatar(e.target.value)}
-      />
-      <button onClick={handleSaveProfile}>Save</button>
-    </div>
-  </div>
+<h5 className={`text-left border-bottom pb-2 ${theme ? "text-white" : "text-dark"}`}>
+Project Communications
+</h5><div className="mb-3 d-flex justify-content-end">
+{/* Menu Button */}
+<button className="btn btn-primary" onClick={() => setShowMenu(!showMenu)}>
+Menu
+</button>
+
+{/* Menu Options */}
+{showMenu && (
+<div
+className="position-absolute end-0 mt-2 p-3 bg-light border rounded shadow"
+style={{ zIndex: 100 }}
+>
+{/* Close Menu Button */}
+<span className="close" onClick={() => setShowMenu(false)}>&times;</span>
+
+<button
+ className="btn btn-link d-block w-100 text-start"
+ onClick={() => {
+   setIsProfileModalOpen(true);
+   setShowMenu(false);
+ }}
+>
+ Update Profile
+</button>
+
+<button
+ className="btn btn-link d-block w-100 text-start"
+ onClick={() => {
+   dispatch(toggleTheme());
+   setShowMenu(false);
+ }}
+>
+ Switch to {theme ? "Light" : "Dark"} Mode
+</button>
+
+<button
+ className="btn btn-link text-danger d-block w-100 text-start"
+ onClick={handleLogout}
+>
+ Logout
+</button>
+</div>
+)}
+
+{/* Profile Modal */}
+{isProfileModalOpen && (
+<div className="modal">
+ <div className="modal-content position-relative">
+   <span className="close" onClick={() => setIsProfileModalOpen(false)}>&times;</span>
+   <h2>Update Profile</h2>
+
+   <input
+     type="text"
+     placeholder="New Username"
+     value={newUsername}
+     onChange={(e) => setNewUsername(e.target.value)}
+   />
+   <input
+     type="text"
+     placeholder="New Avatar URL"
+     value={newAvatar}
+     onChange={(e) => setNewAvatar(e.target.value)}
+   />
+  
+   <input
+     type="password"
+     placeholder="Old Password"
+     value={oldPassword}
+     onChange={(e) => setOldpassword(e.target.value)}
+   />
+   <input
+     type="password"
+     placeholder="New Password"
+     value={newPassword}
+     onChange={(e) => setNewpassword(e.target.value)}
+   />
+
+   <button
+     onClick={() =>
+       handleSaveProfile(newUsername, newAvatar, oldPassword, newPassword)
+     }
+   >
+     Save
+   </button>
+ </div>
+</div>
 )}
 </div>
-    <div className="d-flex justify-content-end mb-2">
-        <button 
-        className="btn btn-outline-secondary"
-        onClick={() => dispatch(toggleTheme())}
-        >
-          switch to {theme ? "Light" : "Dark"} mode
-        </button>
-      </div>
+
       {loadingInitial ? (
         <div className="d-flex justify-content-center align-items-center" style={{ height: "200px" }}>
           <div className="spinner-border text-primary" role="status" />

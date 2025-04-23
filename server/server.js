@@ -10,7 +10,7 @@ const messageRoutes = require("./Routes/messageRoutes.js");
 const authRoutes = require("./Routes/AuthRoute.js");  // Import auth routes
 const Message = require("./Models/MessageModel.js");
 const authenticateSocket = require("./Middelware/authMiddelware.js");  // Import middleware
-
+const User = require("./Models/RegisterModel.js"); // Import User model
 const app = express();
 const server = http.createServer(app);
 const io = require("socket.io")(server, {
@@ -90,15 +90,22 @@ io.on("connection", (socket) => {
     socket.room = room;
   });
 
-  socket.on("sendMessage", async (msg) => {
-    try {
-      const saved = await new Message(msg).save();
-      io.to(socket.room).emit("receiveMessage", saved);
-    } catch (err) {
-      console.error("Message save error:", err);
-    }
-  });
-
+  // In your socket.io connection handler
+socket.on("sendMessage", async (msg) => {
+  try {
+    // Get the user's avatar from the database
+    const user = await User.findById(socket.user.userId);
+    const messageWithAvatar = {
+      ...msg,
+      avatar: user.avatar // Include the user's actual avatar
+    };
+    
+    const saved = await new Message(messageWithAvatar).save();
+    io.to(socket.room).emit("receiveMessage", saved);
+  } catch (err) {
+    console.error("Message save error:", err);
+  }
+});
   socket.on("typing", () => {
     const user = users[socket.id];
     if (user?.room) {
