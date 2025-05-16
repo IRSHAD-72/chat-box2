@@ -5,6 +5,9 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 
+
+
+
 // Nodemailer transporter
 const transporter = nodemailer.createTransport({
   host: "smtp.ethereal.email",
@@ -14,6 +17,10 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_PASS,
   },
 });
+
+
+
+
 
 // ✅ Register Route
 router.post("/register", async (req, res) => {
@@ -46,6 +53,9 @@ router.post("/register", async (req, res) => {
 
     const savedUser = await newUser.save();
 
+
+
+
     // Generate verification token
     const verificationToken = jwt.sign(
       { userId: savedUser._id },
@@ -74,6 +84,8 @@ router.post("/register", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+
 
 // ✅ Email Verification Route
 router.get("/verify/:token", async (req, res) => {
@@ -135,16 +147,19 @@ router.get("/verify/:token", async (req, res) => {
 
 // ✅ Login Route
 router.post("/login", async (req, res) => {
-  const { username, password } = req.body;
+  const { identifier, password } = req.body;
 
-  if (!username || !password)
-    return res.status(400).json({ message: "Username and password are required" });
+  if (!identifier || !password)
+    return res.status(400).json({ message: "Username/email and password are required" });
 
   try {
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ $or:[
+      {username:identifier},
+      {email:identifier}
+    ] });
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid username or password" });
+      return res.status(400).json({ message: "Invalid username/email or password" });
     }
 
     if (!user.isVerified) {
@@ -153,21 +168,32 @@ router.post("/login", async (req, res) => {
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid username or password" });
+      return res.status(400).json({ message: "Invalid username/email or password" });
     }
 
     const token = jwt.sign(
       { userId: user._id, username: user.username },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "24h" }
     );
 
-    res.json({ message: "Login successful", token });
+    res.json({
+      message: "Login successful",
+      token,
+      user: {
+        _id: user._id,
+        username: user.username,
+        avatar: user.avatar || "",
+      },
+    });
+    
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+
 const authenticateToken = require("../Middelware/authMiddelware");
 
 router.post("/updateProfile", authenticateToken, async (req, res) => {
@@ -210,6 +236,30 @@ router.post("/updateProfile", authenticateToken, async (req, res) => {
     res.json({ message: "Profile updated successfully" });
   } catch (error) {
     console.error("Error updating profile:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
+const Message = require("../Models/MessageModel"); // make sure this is imported
+
+router.delete("/deleteAccount", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    // Delete the user
+    const user = await User.findByIdAndDelete(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Delete all messages by the user
+    await Message.deleteMany({ user: user.username });
+
+    res.json({ message: "Account and all messages deleted successfully" });
+  } catch (err) {
+    console.error("Delete account error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });

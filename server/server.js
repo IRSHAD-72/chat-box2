@@ -4,7 +4,11 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
-const dotenv = require("dotenv").config();
+const dotenv = require("dotenv").config({ path: "./config/.env" });
+
+const path = require("path");
+const cloudinary = require("./config/cloudinary.js");
+
 
 const messageRoutes = require("./Routes/messageRoutes.js");
 const authRoutes = require("./Routes/AuthRoute.js");  // Import auth routes
@@ -28,7 +32,7 @@ io.use((socket, next) => {
   const token = socket.handshake.auth.token;
 
   if (!token) {
-    console.log("❌ No token provided");
+    console.log(" No token provided");
     return next(new Error("No token"));
   }
 
@@ -37,7 +41,7 @@ io.use((socket, next) => {
     socket.user = decoded; // optionally store user data on socket
     next();
   } catch (err) {
-    console.log("❌ Invalid token", err.message);
+    console.log(" Invalid token", err.message);
     next(new Error("Authentication failed"));
   }
 });
@@ -47,6 +51,7 @@ app.use(cors());
 app.use(express.json());
 app.use("/api/messages", messageRoutes);// Use auth routes
 app.use("/api/auth", authRoutes);
+
 
 mongoose
   .connect(process.env.MONGO_URI)
@@ -93,19 +98,31 @@ io.on("connection", (socket) => {
   // In your socket.io connection handler
 socket.on("sendMessage", async (msg) => {
   try {
-    // Get the user's avatar from the database
-    const user = await User.findById(socket.user.userId);
-    const messageWithAvatar = {
-      ...msg,
-      avatar: user.avatar // Include the user's actual avatar
+    const user = await User.findById(socket.user.userId); // Get full user
+
+    const message = new Message({
+      text: msg.text,
+      time: msg.time,
+      user: user.username,
+      avatar: user.avatar, // ✅ store avatar
+    });
+
+    await message.save();
+
+    const fullMessage = {
+      _id: message._id,
+      text: message.text,
+      time: message.time,
+      user: user.username,
+      avatar: user.avatar,
     };
-    
-    const saved = await new Message(messageWithAvatar).save();
-    io.to(socket.room).emit("receiveMessage", saved);
+
+    io.to(socket.room).emit("receiveMessage", fullMessage);
   } catch (err) {
     console.error("Message save error:", err);
   }
 });
+
   socket.on("typing", () => {
     const user = users[socket.id];
     if (user?.room) {
@@ -145,6 +162,7 @@ socket.on("sendMessage", async (msg) => {
     console.log("Client disconnected:", socket.id);
   });
 });
+
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

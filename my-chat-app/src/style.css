@@ -320,7 +320,7 @@ body{margin-top:20px;}
     top: 10px;
     left: -20px;
     border: 10px solid;
-    border-color: transparent #f2f2f2 transparent transparent;
+    border-color: transparent #e4e6eb transparent transparent;
 }
 
 .chat-container li.chat-right > .chat-text {
@@ -329,7 +329,7 @@ body{margin-top:20px;}
 
 .chat-container li.chat-right > .chat-text:before {
     right: -20px;
-    border-color: transparent transparent transparent #f2f2f2;
+    border-color: transparent transparent transparent #e4e6eb;
     left: inherit;
 }
 

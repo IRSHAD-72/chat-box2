@@ -3,14 +3,14 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const Login = () => {
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier]= useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const handleLogin = async (e) => {
     e.preventDefault();
   
-    const loginData = { username, password };
+    const loginData = { identifier, password };
   
     try {
       const response = await axios.post("http://localhost:5000/api/auth/login", loginData, {
@@ -23,7 +23,7 @@ const Login = () => {
   
       if (response.data.token) {
         localStorage.setItem("token", response.data.token);
-        localStorage.setItem("username", username);
+        localStorage.setItem("username", identifier);
         navigate("/chat");
       } else {
         alert("Login failed: Token not received");
@@ -42,9 +42,9 @@ const Login = () => {
 
       <input
         className="form-control mb-2"
-        placeholder="Username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
+        placeholder="Username or email"
+        value={identifier}
+        onChange={(e) => setIdentifier(e.target.value)}
       />
       <input
         className="form-control mb-2"

@@ -8,7 +8,8 @@ const App = () => {
   const [username, setUsername] = useState(null);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("chatUser");
+    const storedUser = localStorage.getItem("username");
+
     setUsername(storedUser);
   }, []);
 
